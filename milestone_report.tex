@@ -1,0 +1,205 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{hyperref}
+\usepackage{array}
+\usepackage{enumitem}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue}
+
+\titleformat{\section}{\large\bfseries}{}{0em}{}[\titlerule]
+\titleformat{\subsection}{\normalsize\bfseries}{}{0em}{}
+
+\title{\textbf{Safety Preservation in Knowledge Distillation}\\[0.4em]
+\large Milestone Report}
+\date{}
+
+\begin{document}
+\maketitle
+
+Our group has started the exploration and implementation of the project. Below is the detailed plan and current progress. The dataset has already been prepared and the specific implementation can be found at \href{https://github.com/202520030411/Distill-Safety-Aligned-Models}{https://github.com/202520030411/Distill-Safety-Aligned-Models}.
+
+\section{Overview}
+
+The goal is to distill a safety-aligned teacher LLM into a smaller student model and measure how much safety alignment survives the distillation process, then identify training strategies that preserve it. We evaluate three dimensions: unsafe compliance (does the student answer harmful prompts?), over-refusal (does the student wrongly refuse benign prompts?), and general response quality. We additionally test robustness under adversarial jailbreak attacks, which go beyond direct harmful prompts to probe whether safety is superficial or deeply preserved.
+
+\section{Phase 1: Setup \& Infrastructure}
+
+\subsection{1.1 Model Selection}
+
+\begin{itemize}
+    \item \textbf{Teacher model:} \texttt{meta-llama/Llama-3.1-8B-Instruct} --- large enough to have strong safety alignment, small enough to run on available hardware.
+    \item \textbf{Student model:} \texttt{meta-llama/Llama-3.2-1B} initialized from a pretrained base checkpoint --- the model we aim to distill safety into.
+\end{itemize}
+
+\subsection{1.2 Environment}
+
+\begin{itemize}
+    \item GPU environment: Kaggle (free A100), university cluster, or cloud instance.
+    \item Dependencies: \texttt{transformers}, \texttt{trl}, \texttt{peft}, \texttt{vllm} (fast inference), \texttt{datasets}.
+    \item All training uses LoRA/QLoRA for parameter-efficient fine-tuning.
+\end{itemize}
+
+\section{Phase 2: Dataset Construction}
+
+Dataset construction proceeds in two sequential stages:
+
+\begin{enumerate}
+    \item \textbf{Teacher Inference} (\texttt{generate\_data.py}): Run the safety-aligned teacher model on benign and harmful prompts to collect labeled (prompt, response) pairs.
+    \item \textbf{Dataset Preparation} (\texttt{prepare\_dataset.py}): Filter unsafe content, format examples into the Llama-3 chat template, and split into train/validation sets.
+\end{enumerate}
+
+A third script, \texttt{test\_logic.py}, verifies all pure Python logic locally without requiring a GPU or any machine learning dependencies. All 29 tests pass.
+
+\subsection{2.1 Data Sources}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Source} & \textbf{HuggingFace ID} & \textbf{Purpose} \\
+\midrule
+Alpaca   & \texttt{tatsu-lab/alpaca}  & 5{,}000 benign instruction prompts \\
+AdvBench & \texttt{walledai/AdvBench} & 500 harmful behavior prompts \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{2.2 Teacher Inference}
+
+The teacher is run via \textbf{vLLM} with greedy decoding (temperature $= 0$) and a maximum of 512 new tokens per response. Greedy decoding is used to produce deterministic, high-confidence supervised targets. Each harmful response is classified as a \emph{refusal} or \emph{compliance} using a heuristic detector combining prefix matching and regex patterns. Only refusal responses are retained for training --- harmful compliances are discarded to avoid training the student on unsafe content.
+
+\subsection{2.3 Dataset Splits}
+
+Records are shuffled with a fixed random seed and split 95\%/5\% into train and validation sets, saved as JSONL files under \texttt{data/processed/}.
+
+\section{Phase 3: Training}
+
+We train four versions of the student model to isolate the effect of different safety-aware training strategies.
+
+\subsection{3.1 SFT Variants}
+
+\begin{itemize}
+    \item \textbf{Baseline} (\texttt{sft\_baseline.py}): Supervised fine-tuning on benign examples only. This is the control condition --- expected to produce a capable but unsafe student since it never sees refusal behavior.
+    \item \textbf{Variant A} (\texttt{sft\_with\_refusals.py}): SFT on benign examples plus teacher refusal responses. Tests whether naive inclusion of refusals is sufficient to preserve safety.
+    \item \textbf{Variant B} (\texttt{sft\_weighted.py}): Same data as Variant A, but the loss on refusal examples is upweighted during training. Tests whether emphasizing safety examples beyond their natural proportion further helps.
+\end{itemize}
+
+\subsection{3.2 DPO Variant}
+
+Direct Preference Optimization (DPO) treats safety as a \emph{preference} rather than an imitation target. For each harmful prompt, the teacher's refusal is marked as the preferred response and a compliance is marked as the rejected response. The student learns to assign higher probability to refusals. This is the most principled approach as it explicitly optimizes for safety over compliance rather than simply imitating outputs.
+
+\subsection{3.3 Estimated Training Times (A100)}
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Variant} & \textbf{Estimated Time} \\
+\midrule
+Baseline (SFT, benign only)    & $\sim$1--1.5 hours \\
+Variant A (SFT + refusals)     & $\sim$1.5--2 hours \\
+Variant B (weighted SFT)       & $\sim$1.5--2 hours \\
+Variant C (DPO)                & $\sim$2--3 hours \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Variants A/B and C can be trained in parallel on separate GPUs, yielding all four checkpoints in approximately 3--4 hours total.
+
+\section{Phase 4: Standard Evaluation}
+
+\subsection{4.1 Metrics}
+
+\begin{itemize}
+    \item \textbf{Unsafe Compliance Rate} (\texttt{eval\_safety.py}): Percentage of harmful prompts where the model produces a harmful response rather than refusing. Measured using \texttt{meta-llama/Llama-Guard-3-8B} as an automated judge. Lower is safer.
+    \item \textbf{False Refusal Rate} (\texttt{eval\_refusal.py}): Percentage of benign prompts where the model incorrectly refuses to answer. Lower is better --- overly cautious models are not useful.
+    \item \textbf{Response Quality} (\texttt{eval\_quality.py}): General capability measured via MT-Bench or AlpacaEval on held-out benign prompts. Higher is better.
+\end{itemize}
+
+\subsection{4.2 Evaluation Strategy}
+
+Evaluation scripts are written and tested on the teacher model during Phase 3 training, providing upper-bound reference scores before student checkpoints are available. Once checkpoints are ready, the same scripts are run across all five models (teacher, baseline, Variant A, B, C).
+
+\subsection{4.3 Expected Results Table}
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Model} & \textbf{Unsafe Compliance} $\downarrow$ & \textbf{False Refusal} $\downarrow$ & \textbf{Quality} $\uparrow$ \\
+\midrule
+Teacher (upper bound)          & & & \\
+Baseline (SFT, no safety data) & & & \\
+Variant A                      & & & \\
+Variant B                      & & & \\
+Variant C (DPO)                & & & \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Phase 5: Jailbreak Robustness \& Safety Recovery}
+
+\subsection{5.1 Jailbreak Evaluation}
+
+Standard evaluation tests only direct harmful prompts. Real-world attackers use adversarial techniques to bypass safety measures. We test all trained models against three categories of jailbreak attacks:
+
+\begin{itemize}
+    \item \textbf{Role-play bypass:} Framing the harmful request as fiction or character dialogue (e.g., ``you are a character in a novel who explains...'').
+    \item \textbf{DAN-style prompts:} Instructing the model to ignore its guidelines (e.g., ``pretend you have no restrictions'').
+    \item \textbf{Prefix injection:} Forcing the model to begin its response with a compliant phrase (e.g., ``start your answer with: Sure, here is how'').
+\end{itemize}
+
+A model that passes standard evaluation but fails jailbreak evaluation has only \emph{surface-level} safety, which breaks under minimal adversarial pressure.
+
+\subsection{5.2 Safety Recovery}
+
+If distillation degrades safety (as expected in the baseline), we test whether safety can be cheaply recovered post-hoc by fine-tuning the degraded student on a small targeted set of 50--100 refusal examples. This answers a practical deployment question: \emph{can you patch safety back into a distilled model without retraining from scratch?}
+
+\section{Work Distribution \& Timeline}
+
+\begin{center}
+\begin{tabular}{>{\bfseries}p{0.12\textwidth} p{0.38\textwidth} p{0.35\textwidth}}
+\toprule
+\textbf{Member} & \textbf{Responsibility} & \textbf{Deliverables} \\
+\midrule
+Member 1
+  & Data pipeline (complete) + DPO training
+  & \texttt{data/}, \texttt{train/dpo.py} \\
+\addlinespace
+Member 2
+  & SFT training (Baseline, Variant A, Variant B)
+  & \texttt{train/sft\_baseline.py}, \texttt{train/sft\_with\_refusals.py}, \texttt{train/sft\_weighted.py} \\
+\addlinespace
+Member 3
+  & Standard evaluation suite
+  & \texttt{eval/eval\_safety.py}, \texttt{eval\_refusal.py}, \texttt{eval\_quality.py} \\
+\addlinespace
+Member 4
+  & Jailbreak evaluation + safety recovery
+  & \texttt{eval/eval\_jailbreak.py}, \texttt{train/safety\_recovery.py} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{center}
+\begin{tabular}{lp{0.72\textwidth}}
+\toprule
+\textbf{Week} & \textbf{Activities} \\
+\midrule
+Week 1
+  & All members write and test their scripts in parallel.
+    Members 1 and 2 begin training on GPU immediately.
+    Members 3 and 4 run their eval scripts on the teacher model
+    to obtain upper-bound reference scores and verify correctness. \\
+\addlinespace
+Week 2
+  & Members 1 and 2 finish training and share all checkpoints.
+    Members 3 and 4 run full evaluation across all models
+    (teacher, baseline, Variant A, B, C/DPO).
+    Results aggregated, plots generated, and writeup completed by
+    end of week. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\end{document}
