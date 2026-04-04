@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+logs/*
+!logs/.gitkeep
+
+outputs/download_check/
+outputs/realcheck_*/
+outputs/smoke_*/
+
+data/processed_smoke/
