@@ -2,7 +2,7 @@
 
 **Research question:** Does knowledge distillation preserve the safety alignment of large language models, or does it unintentionally remove it?
 
-We distill a safety-aligned teacher model (Llama-3.1-8B-Instruct) into a smaller student model (Llama-3.2-1B-Instruct) using synthetic data, then evaluate how well safety is retained across different training strategies.
+We distill a safety-aligned teacher model (Llama-3.1-8B-Instruct) into a smaller student model (Llama-3.2-1B base) using synthetic data, then evaluate how well safety is retained across different training strategies.
 
 See `milestone_report.pdf` for the full project plan.
 
@@ -21,13 +21,10 @@ See `milestone_report.pdf` for the full project plan.
 │   ├── val.jsonl                # 100 SFT validation examples
 │   └── dpo_pairs.jsonl          # 485 DPO preference pairs (chosen=refusal, rejected=base compliance)
 │
-├── train/                       # Training scripts
-│   ├── common.py                # Shared model loading, arg parsing, utilities
+├── train/                       # Training utilities and DPO scripts
+│   ├── common.py                # Shared model loading and path utilities
 │   ├── dataset.py               # Dataset loading, filtering, encoding
 │   ├── trainer_utils.py         # Custom collator and weighted loss trainer
-│   ├── sft_baseline.py          # SFT on benign-only data
-│   ├── sft_with_refusals.py     # SFT on benign + teacher refusals
-│   ├── sft_weighted.py          # SFT with upweighted refusal examples
 │   ├── prepare_dpo_data.py      # Generate DPO rejected responses from base model
 │   └── dpo.py                   # DPO training on top of SFT baseline
 │
@@ -39,9 +36,9 @@ See `milestone_report.pdf` for the full project plan.
 │
 ├── eval/                        # Evaluation scripts (in progress)
 ├── results/                     # Training summaries and metrics
-├── scripts/                     # Shell scripts to launch training runs
+│   └── sft_results.md           # SFT training setup and variant descriptions
 ├── kaggle_generate_data.ipynb   # Kaggle notebook: teacher inference (data generation)
-├── kaggle_dpo.ipynb             # Kaggle notebook: DPO preference pair generation + training
+├── kaggle_train.ipynb           # Kaggle notebook: all SFT variants + DPO training
 └── requirements.txt
 ```
 
@@ -66,19 +63,18 @@ Kaggle notebook: `kaggle_generate_data.ipynb`
 
 ---
 
-### Step 2 — SFT Training (Member 2)
+### Step 2 — SFT Training (Member 1)
 
-Three supervised fine-tuning variants on the student model (Llama-3.2-1B-Instruct) using LoRA:
+Three supervised fine-tuning variants on the student model (`meta-llama/Llama-3.2-1B` base) using QLoRA:
 
-| Variant | Data | Script |
+| Variant | Data | Description |
 |---|---|---|
-| `baseline` | Benign only | `train/sft_baseline.py` |
-| `with_refusals` | Benign + teacher refusals | `train/sft_with_refusals.py` |
-| `weighted` | Benign + refusals (refusals upweighted 3×) | `train/sft_weighted.py` |
+| `baseline` | Benign only | Teaches instruction-following; no safety signal |
+| `with_refusals` | Benign + teacher refusals | Adds teacher refusal responses as training examples |
+| `weighted` | Benign + refusals (refusals upweighted 3×) | Extra loss weight on refusal examples |
 
-LoRA config: `r=16`, `alpha=32`, `dropout=0.05`, all attention + MLP projection layers.
-
-Run on AutoDL via shell scripts in `scripts/`.
+LoRA config: `r=16`, `alpha=32`, `dropout=0.05`, all attention + MLP projection layers.  
+Optimizer: `paged_adamw_8bit` (QLoRA 4-bit). Run on Kaggle T4 via `kaggle_train.ipynb`.
 
 ---
 
@@ -99,7 +95,7 @@ Teacher refusals → chosen responses
 - Fresh LoRA adapter added on top for DPO updates (β=0.1, lr=5e-5, 2 epochs)
 - Train loss: 0.072 after ~55 min on Kaggle T4
 
-Kaggle notebook: `kaggle_dpo.ipynb`
+Kaggle notebook: `kaggle_train.ipynb` (DPO section runs after SFT)
 
 ---
 
@@ -115,14 +111,14 @@ Evaluating all four models (baseline, with_refusals, weighted, dpo) on:
 
 ## Loading a Trained Adapter
 
-All adapters are LoRA adapters built on `meta-llama/Llama-3.2-1B-Instruct`.
+All adapters are LoRA adapters built on `meta-llama/Llama-3.2-1B` (base model).
 
 ```python
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 
-base_model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.2-1B-Instruct")
-tokenizer  = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B-Instruct")
+base_model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.2-1B")
+tokenizer  = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B")
 
 # Load any adapter — replace with baseline / with_refusals / weighted / dpo
 model = PeftModel.from_pretrained(base_model, "outputs/dpo")
@@ -132,6 +128,7 @@ model = PeftModel.from_pretrained(base_model, "outputs/dpo")
 
 ## Key Findings (so far)
 
-- The SFT baseline (benign-only) retains **93% refusal rate** on harmful prompts — the Instruct base model's safety survives distillation on benign data.
-- The DPO adapter was trained on the **7% of cases where the baseline complied**, targeting the residual safety gap.
+- Starting from a **base model with no safety alignment** (Llama-3.2-1B) provides a clean baseline where harmful compliance is expected, making safety gains from SFT/DPO clearly measurable.
+- **485 valid DPO preference pairs** were extracted from cases where the base model complied with harmful prompts while the teacher refused.
+- The DPO adapter (β=0.1, train loss 0.072) was trained for ~55 min on Kaggle T4.
 - Full evaluation results pending.
