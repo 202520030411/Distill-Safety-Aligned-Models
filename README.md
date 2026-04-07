@@ -12,33 +12,27 @@ See `milestone_report.pdf` for the full project plan.
 
 ```
 .
-├── data/                        # Dataset pipeline
-│   ├── generate_data.py         # Run teacher on benign + harmful prompts
-│   ├── prepare_dataset.py       # Filter, format, and split into train/val
-│   ├── test_logic.py            # Smoke tests (no GPU required)
+├── data/                          # Dataset pipeline
+│   ├── generate_data.py           # Run teacher on benign + harmful prompts
+│   ├── prepare_dataset.py         # Filter, format, and split into train/val
+│   ├── test_logic.py              # Smoke tests (no GPU required)
 │   ├── raw_teacher_outputs.jsonl  # 2000 teacher responses (1500 benign, 500 harmful)
-│   ├── train.jsonl              # 1885 SFT training examples
-│   ├── val.jsonl                # 100 SFT validation examples
-│   └── dpo_pairs.jsonl          # 485 DPO preference pairs (chosen=refusal, rejected=base compliance)
+│   ├── train.jsonl                # 1885 SFT training examples
+│   ├── val.jsonl                  # 100 SFT validation examples
+│   └── dpo_pairs.jsonl            # 485 DPO preference pairs (chosen=refusal, rejected=base compliance)
 │
-├── train/                       # Training utilities and DPO scripts
-│   ├── common.py                # Shared model loading and path utilities
-│   ├── dataset.py               # Dataset loading, filtering, encoding
-│   ├── trainer_utils.py         # Custom collator and weighted loss trainer
-│   ├── prepare_dpo_data.py      # Generate DPO rejected responses from base model
-│   └── dpo.py                   # DPO training on top of SFT baseline
+├── outputs/                       # Trained LoRA adapters
+│   ├── baseline/                  # SFT benign-only adapter
+│   ├── with_refusals/             # SFT with refusals adapter
+│   ├── weighted/                  # SFT weighted adapter
+│   └── dpo/                       # DPO adapter (on top of SFT baseline)
 │
-├── outputs/                     # Trained LoRA adapters
-│   ├── baseline/                # SFT benign-only adapter
-│   ├── with_refusals/           # SFT with refusals adapter
-│   ├── weighted/                # SFT weighted adapter
-│   └── dpo/                     # DPO adapter (built on top of baseline)
-│
-├── eval/                        # Evaluation scripts (in progress)
-├── results/                     # Training summaries and metrics
-│   └── sft_results.md           # SFT training setup and variant descriptions
-├── kaggle_generate_data.ipynb   # Kaggle notebook: teacher inference (data generation)
-├── kaggle_train.ipynb           # Kaggle notebook: all SFT variants + DPO training
+├── eval/                          # Evaluation scripts (in progress)
+├── results/                       # Training summaries
+│   └── sft_results.md             # SFT setup and variant descriptions
+├── kaggle_generate_data.ipynb     # Kaggle notebook: teacher inference (data generation)
+├── kaggle_train.ipynb             # Kaggle notebook: all SFT variants + DPO training
+├── milestone_report.tex/.pdf      # Project milestone report
 └── requirements.txt
 ```
 
@@ -46,7 +40,7 @@ See `milestone_report.pdf` for the full project plan.
 
 ## Pipeline Overview
 
-### Step 1 — Data Generation (Member 1)
+### Step 1 — Data Generation
 
 Run the teacher model (Llama-3.1-8B-Instruct) on benign and harmful prompts to collect training data.
 
@@ -63,7 +57,7 @@ Kaggle notebook: `kaggle_generate_data.ipynb`
 
 ---
 
-### Step 2 — SFT Training (Member 1)
+### Step 2 — SFT Training
 
 Three supervised fine-tuning variants on the student model (`meta-llama/Llama-3.2-1B` base) using QLoRA:
 
@@ -78,7 +72,7 @@ Optimizer: `paged_adamw_8bit` (QLoRA 4-bit). Run on Kaggle T4 via `kaggle_train.
 
 ---
 
-### Step 3 — DPO Training (Member 1)
+### Step 3 — DPO Training
 
 Direct Preference Optimization on top of the SFT baseline to further reinforce safety.
 
@@ -99,7 +93,7 @@ Kaggle notebook: `kaggle_train.ipynb` (DPO section runs after SFT)
 
 ---
 
-### Step 4 — Evaluation (Members 3 & 4)
+### Step 4 — Evaluation
 
 Evaluating all four models (baseline, with_refusals, weighted, dpo) on:
 - **Unsafe compliance rate (ASR)**: how often the model complies with harmful prompts
