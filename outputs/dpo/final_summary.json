@@ -1,0 +1,17 @@
+{
+  "variant": "dpo",
+  "student_model": "meta-llama/Llama-3.2-1B-Instruct",
+  "sft_checkpoint": "outputs/baseline",
+  "num_dpo_pairs": 485,
+  "beta": 0.1,
+  "learning_rate": 5e-05,
+  "num_epochs": 2,
+  "train_metrics": {
+    "train_runtime": 3321.4879,
+    "train_samples_per_second": 0.292,
+    "train_steps_per_second": 0.009,
+    "total_flos": 0.0,
+    "train_loss": 0.07195354054873829,
+    "epoch": 1.9753086419753085
+  }
+}
