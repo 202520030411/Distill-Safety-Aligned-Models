@@ -3,11 +3,20 @@ __pycache__/
 *.pyo
 *.pyd
 
+# Training logs
 logs/*
 !logs/.gitkeep
 
+# Checkpoint folders (large binary files — keep only final adapters)
+outputs/**/checkpoint-*/
 outputs/download_check/
 outputs/realcheck_*/
 outputs/smoke_*/
+
+# Large optimizer/trainer state files
+optimizer.pt
+rng_state.pth
+scheduler.pt
+training_args.bin
 
 data/processed_smoke/
