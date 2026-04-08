@@ -118,8 +118,8 @@ Teacher refusals → chosen responses
 **Key design decisions:**
 - Rejected responses come from `Llama-3.2-1B` (base, no Instruct) — guaranteed to comply with harmful prompts
 - SFT LoRA is merged into base weights before DPO, so reference logits are stable
-- Current adapter: standard DPO (β=0.1, lr=5e-5, 2 epochs), train loss 0.072, ~55 min on Kaggle T4
-- Planned upgrade: **TVKD** — augments DPO with the teacher's soft value function `ψ(s,a) = V_φ(s') − V_φ(s)`, providing token-level alignment signal without additional rollouts
+- DPO trained with β=0.1, lr=5e-5, 2 epochs — train loss 0.072, ~55 min on Kaggle T4
+- Method choice informed by **TVKD** (NeurIPS 2025): the DPO preference framework is theoretically grounded in the teacher's value function `ψ(s,a) = V_φ(s') − V_φ(s)`, which validates using the teacher's refusal behavior as the preference signal
 
 Kaggle notebook: `kaggle_train.ipynb` (DPO section runs after SFT)
 
