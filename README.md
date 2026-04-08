@@ -60,7 +60,7 @@ The key simplification over the original paper: safety refusal has a binary pseu
 │   ├── rm/                        # Safety Reward Model adapter
 │   └── on_policy_dpo/             # On-policy DPO adapter (RM-ranked student generations)
 │
-├── eval/                          # Evaluation scripts (in progress)
+├── eval/                          # Local evaluation suite
 ├── results/                       # Training summaries
 │   └── sft_results.md             # SFT setup and variant descriptions
 ├── kaggle_generate_data.ipynb     # Kaggle notebook: teacher inference (data generation)
@@ -137,8 +137,16 @@ Teacher refusals → chosen responses
 Evaluating all five models (baseline, with_refusals, weighted, dpo, on_policy_dpo) on:
 - **Unsafe compliance rate (ASR)**: how often the model complies with harmful prompts
 - **False refusal rate**: how often the model refuses benign prompts
-- **Response quality**: general capability (MT-Bench / AlpacaEval style)
+- **Response quality**: teacher-reference proxy on held-out benign prompts
 - **Jailbreak robustness**: adversarial prompts (DAN, role-play, prefix injection)
+
+Local evaluation entrypoint:
+
+```bash
+python eval/run_all.py --models teacher baseline with_refusals weighted dpo
+```
+
+By default, the eval scripts use `data/val.jsonl` as the held-out split. See `eval/README.md` for the exact metric definitions and caveats.
 
 ---
 
@@ -153,9 +161,11 @@ from peft import PeftModel
 base_model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.2-1B")
 tokenizer  = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B")
 
-# Load any adapter — replace with baseline / with_refusals / weighted / dpo
-model = PeftModel.from_pretrained(base_model, "outputs/dpo")
+# Load a standard SFT adapter — replace with baseline / with_refusals / weighted
+model = PeftModel.from_pretrained(base_model, "outputs/baseline")
 ```
+
+Note: `outputs/dpo` is special. It was trained on top of a base model with the `baseline` adapter already merged in, so proper DPO inference/eval should load `baseline`, merge it, and then attach `outputs/dpo`. The helper in `eval/common.py` does this automatically.
 
 ---
 
@@ -164,4 +174,4 @@ model = PeftModel.from_pretrained(base_model, "outputs/dpo")
 - Starting from a **base model with no safety alignment** (Llama-3.2-1B) provides a clean baseline where harmful compliance is expected, making safety gains from SFT/DPO clearly measurable.
 - **485 valid DPO preference pairs** were extracted from cases where the base model complied with harmful prompts while the teacher refused.
 - The DPO adapter (β=0.1, train loss 0.072) was trained for ~55 min on Kaggle T4.
-- Full evaluation results pending.
+- The repository now includes a local eval suite under `eval/`, but the current held-out split is still small (`data/val.jsonl` has 100 examples).
