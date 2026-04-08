@@ -1,10 +1,42 @@
 # Distill Safety-Aligned Models
 
-**Research question:** Does knowledge distillation preserve the safety alignment of large language models, or does it unintentionally remove it?
+**Research question:** Can safety alignment be efficiently transferred from a large aligned teacher to a small student model by combining output distillation with value-based reward distillation — without requiring human feedback or repeating the teacher's full RLHF pipeline?
 
 We distill a safety-aligned teacher model (Llama-3.1-8B-Instruct) into a smaller student model (Llama-3.2-1B base) using synthetic data, then evaluate how well safety is retained across different training strategies.
 
 See `milestone_report.pdf` for the full project plan.
+
+---
+
+## Research Problem
+
+Large language models encode safety not just as output behavior, but as an internal alignment structure built through RLHF. Standard knowledge distillation transfers only output behavior — the student learns *what* the teacher says, but not *why* it's safe. This leads to the **functional-ethical gap**: students distilled from safety-aligned teachers can comply with up to 86% of adversarial prompts even when trained entirely on benign data ([arXiv:2512.09403](https://arxiv.org/abs/2512.09403)).
+
+---
+
+## Proposed Method
+
+A two-stage pipeline that preserves distillation efficiency while injecting alignment signal:
+
+**Stage 1 — Output Distillation (SFT)**
+Train the student on teacher-generated responses via supervised fine-tuning. Three variants:
+- `baseline`: benign-only, no safety signal
+- `with_refusals`: adds teacher refusal responses
+- `weighted`: refusal examples upweighted 3×
+
+**Stage 2 — Value-Based Reward Distillation (TVKD-DPO)**
+Apply **Teacher Value-based Knowledge Distillation** (TVKD, NeurIPS 2025) on top of the SFT baseline. TVKD augments the standard DPO loss with a soft reward derived from the teacher's value function:
+
+```
+ψ(s, a) = V_φ(s') − V_φ(s)
+```
+
+where `V_φ(s) = β · log Σ_a exp(Q_φ(s,a) / β)` is the soft value function of the DPO-trained teacher. This is added to the DPO reward via potential-based reward shaping, which provably preserves the optimal policy while giving the student token-level soft guidance from the teacher's internal alignment signal — not just its output behavior.
+
+**Why TVKD over reward_distill (Zhang et al., 2025)?**
+- Reward_distill requires PPO, hundreds of teacher rollouts per query, and extractable ground-truth answers for pseudo-label voting — none of which apply to safety refusal tasks
+- TVKD only needs teacher logits precomputed once on the existing DPO pairs, then trains exactly like DPO — computationally feasible on a single Kaggle T4
+- TVKD was validated on exactly our model pair: Llama-3.1-8B → Llama-3.2-1B
 
 ---
 
@@ -72,7 +104,7 @@ Optimizer: `paged_adamw_8bit` (QLoRA 4-bit). Run on Kaggle T4 via `kaggle_train.
 
 ---
 
-### Step 3 — DPO Training
+### Step 3 — DPO / TVKD Training
 
 Direct Preference Optimization on top of the SFT baseline to further reinforce safety.
 
@@ -80,14 +112,14 @@ Direct Preference Optimization on top of the SFT baseline to further reinforce s
 Base model (Llama-3.2-1B, no safety) → generates rejected responses
 Teacher refusals → chosen responses
 → 485 preference pairs in data/dpo_pairs.jsonl
-→ DPO trains outputs/dpo/ adapter
+→ DPO/TVKD trains outputs/dpo/ adapter
 ```
 
 **Key design decisions:**
 - Rejected responses come from `Llama-3.2-1B` (base, no Instruct) — guaranteed to comply with harmful prompts
 - SFT LoRA is merged into base weights before DPO, so reference logits are stable
-- Fresh LoRA adapter added on top for DPO updates (β=0.1, lr=5e-5, 2 epochs)
-- Train loss: 0.072 after ~55 min on Kaggle T4
+- Current adapter: standard DPO (β=0.1, lr=5e-5, 2 epochs), train loss 0.072, ~55 min on Kaggle T4
+- Planned upgrade: **TVKD** — augments DPO with the teacher's soft value function `ψ(s,a) = V_φ(s') − V_φ(s)`, providing token-level alignment signal without additional rollouts
 
 Kaggle notebook: `kaggle_train.ipynb` (DPO section runs after SFT)
 
