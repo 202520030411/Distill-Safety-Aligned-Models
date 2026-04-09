@@ -27,12 +27,13 @@ Train the student on teacher-generated responses via supervised fine-tuning. Thr
 **Stage 2A — DPO** (offline preference optimization)
 Train directly on the 485 preference pairs using DPO. Efficient and offline — no rollouts required.
 
-**Stage 2B — RM + GRPO** (online reward distillation, compared against DPO)
+**Stage 2B — On-Policy DPO** (RM-guided, compared against off-policy DPO)
 Inspired by *"Distill Not Only Data but Also Rewards"* (Zhang et al., 2025):
 1. **Train a Safety RM** — fine-tune a linear classification head on top of the base model using the 485 preference pairs. Loss: `-log σ(r_chosen − r_rejected)`. The RM learns to score refusals higher than harmful compliance.
-2. **Run GRPO** — starting from the SFT baseline, generate 4 completions per AdvBench prompt, score with the frozen RM (+ refusal heuristic), and update the policy via group-relative reward. No value network needed.
+2. **Generate & score** — the SFT baseline generates 4 completions per AdvBench prompt, each scored by the frozen RM (+ refusal heuristic).
+3. **Offline DPO** — for each prompt, the highest-scored response becomes "chosen" and the lowest becomes "rejected", creating ~520 new preference pairs from the student's own generations ranked by the RM. DPO trains on these pairs.
 
-The key simplification over the original paper: safety refusal has a binary pseudo-label (refuse or comply), so no majority voting or answer extraction is needed. The teacher's refusal behavior directly serves as the positive label.
+The key simplification over the original paper: safety refusal has a binary pseudo-label (refuse or comply), so no majority voting or answer extraction is needed. The teacher's refusal behavior directly serves as the positive label. The two-notebook design ensures only one model is on GPU at any time (T4 compatible).
 
 **Why not TVKD?** TVKD requires a DPO-trained teacher to extract the value function. Our teacher (Llama-3.1-8B-Instruct) was aligned via PPO-based RLHF, making the value function extraction incompatible. Our approach treats the teacher as a black-box oracle — no assumptions about its alignment mechanism.
 
@@ -55,14 +56,17 @@ The key simplification over the original paper: safety refusal has a binary pseu
 │   ├── baseline/                  # SFT benign-only adapter
 │   ├── with_refusals/             # SFT with refusals adapter
 │   ├── weighted/                  # SFT weighted adapter
-│   └── dpo/                       # DPO adapter (on top of SFT baseline)
+│   ├── dpo/                       # DPO adapter (on top of SFT baseline)
+│   ├── rm/                        # Safety Reward Model adapter
+│   └── on_policy_dpo/             # On-policy DPO adapter (RM-ranked student generations)
 │
 ├── eval/                          # Evaluation scripts (in progress)
 ├── results/                       # Training summaries
 │   └── sft_results.md             # SFT setup and variant descriptions
 ├── kaggle_generate_data.ipynb     # Kaggle notebook: teacher inference (data generation)
 ├── kaggle_train.ipynb             # Kaggle notebook: all SFT variants + DPO training
-├── kaggle_rm_grpo.ipynb           # Kaggle notebook: safety RM training + GRPO
+├── kaggle_rm.ipynb                # Kaggle notebook 1: RM training + response generation + scoring
+├── kaggle_on_policy_dpo.ipynb      # Kaggle notebook 2: on-policy DPO from RM-scored data
 ├── milestone_report.tex/.pdf      # Project milestone report
 └── requirements.txt
 ```
@@ -103,7 +107,7 @@ Optimizer: `paged_adamw_8bit` (QLoRA 4-bit). Run on Kaggle T4 via `kaggle_train.
 
 ---
 
-### Step 3 — Alignment Injection: DPO vs. RM + GRPO
+### Step 3 — Alignment Injection: Off-Policy DPO vs. On-Policy DPO
 
 Two approaches are trained and compared, both starting from the SFT baseline:
 
@@ -118,17 +122,19 @@ Teacher refusals → chosen responses
 - β=0.1, lr=5e-5, 2 epochs, train loss 0.072, ~55 min on Kaggle T4
 - Notebook: `kaggle_train.ipynb`
 
-**3B — RM + GRPO** (`outputs/rm/`, `outputs/grpo/`)
+**3B — On-Policy DPO** (`outputs/rm/`, `outputs/on_policy_dpo/`)
 - Train safety RM (classification head + LoRA) on the 485 pairs: `-log σ(r_chosen − r_rejected)`
-- Run GRPO on AdvBench prompts using frozen RM as reward; 4 completions/prompt, 1 epoch
-- Online RL targets exactly the prompts where SFT still fails
-- Notebook: `kaggle_rm_grpo.ipynb`
+- SFT baseline generates 4 completions per AdvBench prompt, scored by frozen RM
+- Best/worst responses per prompt form ~520 new preference pairs from the student's own distribution
+- DPO trains on these RM-ranked, on-policy pairs
+- Notebook 1: `kaggle_rm.ipynb` (RM + generation + scoring)
+- Notebook 2: `kaggle_on_policy_dpo.ipynb` (DPO on RM-scored student generations)
 
 ---
 
 ### Step 4 — Evaluation
 
-Evaluating all five models (baseline, with_refusals, weighted, dpo, grpo) on:
+Evaluating all five models (baseline, with_refusals, weighted, dpo, on_policy_dpo) on:
 - **Unsafe compliance rate (ASR)**: how often the model complies with harmful prompts
 - **False refusal rate**: how often the model refuses benign prompts
 - **Response quality**: general capability (MT-Bench / AlpacaEval style)
