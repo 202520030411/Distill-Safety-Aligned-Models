@@ -32,3 +32,5 @@ data/processed_smoke/
 # Kaggle output HTML downloads
 outputs/dpo_training_files/
 outputs/*_training_files/
+
+AGENTS.md
