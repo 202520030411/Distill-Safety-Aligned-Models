@@ -34,3 +34,5 @@ outputs/dpo_training_files/
 outputs/*_training_files/
 
 AGENTS.md
+
+.codex
