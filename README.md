@@ -24,19 +24,17 @@ Train the student on teacher-generated responses via supervised fine-tuning. Thr
 - `with_refusals`: adds teacher refusal responses
 - `weighted`: refusal examples upweighted 3×
 
-**Stage 2 — Value-Based Reward Distillation (TVKD-DPO)**
-Apply **Teacher Value-based Knowledge Distillation** (TVKD, NeurIPS 2025) on top of the SFT baseline. TVKD augments the standard DPO loss with a soft reward derived from the teacher's value function:
+**Stage 2A — DPO** (offline preference optimization)
+Train directly on the 485 preference pairs using DPO. Efficient and offline — no rollouts required.
 
-```
-ψ(s, a) = V_φ(s') − V_φ(s)
-```
+**Stage 2B — RM + GRPO** (online reward distillation, compared against DPO)
+Inspired by *"Distill Not Only Data but Also Rewards"* (Zhang et al., 2025):
+1. **Train a Safety RM** — fine-tune a linear classification head on top of the base model using the 485 preference pairs. Loss: `-log σ(r_chosen − r_rejected)`. The RM learns to score refusals higher than harmful compliance.
+2. **Run GRPO** — starting from the SFT baseline, generate 4 completions per AdvBench prompt, score with the frozen RM (+ refusal heuristic), and update the policy via group-relative reward. No value network needed.
 
-where `V_φ(s) = β · log Σ_a exp(Q_φ(s,a) / β)` is the soft value function of the DPO-trained teacher. This is added to the DPO reward via potential-based reward shaping, which provably preserves the optimal policy while giving the student token-level soft guidance from the teacher's internal alignment signal — not just its output behavior.
+The key simplification over the original paper: safety refusal has a binary pseudo-label (refuse or comply), so no majority voting or answer extraction is needed. The teacher's refusal behavior directly serves as the positive label.
 
-**Why TVKD over reward_distill (Zhang et al., 2025)?**
-- Reward_distill requires PPO, hundreds of teacher rollouts per query, and extractable ground-truth answers for pseudo-label voting — none of which apply to safety refusal tasks
-- TVKD only needs teacher logits precomputed once on the existing DPO pairs, then trains exactly like DPO — computationally feasible on a single Kaggle T4
-- TVKD was validated on exactly our model pair: Llama-3.1-8B → Llama-3.2-1B
+**Why not TVKD?** TVKD requires a DPO-trained teacher to extract the value function. Our teacher (Llama-3.1-8B-Instruct) was aligned via PPO-based RLHF, making the value function extraction incompatible. Our approach treats the teacher as a black-box oracle — no assumptions about its alignment mechanism.
 
 ---
 
@@ -64,6 +62,7 @@ where `V_φ(s) = β · log Σ_a exp(Q_φ(s,a) / β)` is the soft value function 
 │   └── sft_results.md             # SFT setup and variant descriptions
 ├── kaggle_generate_data.ipynb     # Kaggle notebook: teacher inference (data generation)
 ├── kaggle_train.ipynb             # Kaggle notebook: all SFT variants + DPO training
+├── kaggle_rm_grpo.ipynb           # Kaggle notebook: safety RM training + GRPO
 ├── milestone_report.tex/.pdf      # Project milestone report
 └── requirements.txt
 ```
@@ -104,30 +103,32 @@ Optimizer: `paged_adamw_8bit` (QLoRA 4-bit). Run on Kaggle T4 via `kaggle_train.
 
 ---
 
-### Step 3 — DPO / TVKD Training
+### Step 3 — Alignment Injection: DPO vs. RM + GRPO
 
-Direct Preference Optimization on top of the SFT baseline to further reinforce safety.
+Two approaches are trained and compared, both starting from the SFT baseline:
 
 ```
 Base model (Llama-3.2-1B, no safety) → generates rejected responses
 Teacher refusals → chosen responses
 → 485 preference pairs in data/dpo_pairs.jsonl
-→ DPO/TVKD trains outputs/dpo/ adapter
 ```
 
-**Key design decisions:**
-- Rejected responses come from `Llama-3.2-1B` (base, no Instruct) — guaranteed to comply with harmful prompts
-- SFT LoRA is merged into base weights before DPO, so reference logits are stable
-- DPO trained with β=0.1, lr=5e-5, 2 epochs — train loss 0.072, ~55 min on Kaggle T4
-- Method choice informed by **TVKD** (NeurIPS 2025): the DPO preference framework is theoretically grounded in the teacher's value function `ψ(s,a) = V_φ(s') − V_φ(s)`, which validates using the teacher's refusal behavior as the preference signal
+**3A — DPO** (`outputs/dpo/`)
+- Offline preference optimization on the 485 pairs
+- β=0.1, lr=5e-5, 2 epochs, train loss 0.072, ~55 min on Kaggle T4
+- Notebook: `kaggle_train.ipynb`
 
-Kaggle notebook: `kaggle_train.ipynb` (DPO section runs after SFT)
+**3B — RM + GRPO** (`outputs/rm/`, `outputs/grpo/`)
+- Train safety RM (classification head + LoRA) on the 485 pairs: `-log σ(r_chosen − r_rejected)`
+- Run GRPO on AdvBench prompts using frozen RM as reward; 4 completions/prompt, 1 epoch
+- Online RL targets exactly the prompts where SFT still fails
+- Notebook: `kaggle_rm_grpo.ipynb`
 
 ---
 
 ### Step 4 — Evaluation
 
-Evaluating all four models (baseline, with_refusals, weighted, dpo) on:
+Evaluating all five models (baseline, with_refusals, weighted, dpo, grpo) on:
 - **Unsafe compliance rate (ASR)**: how often the model complies with harmful prompts
 - **False refusal rate**: how often the model refuses benign prompts
 - **Response quality**: general capability (MT-Bench / AlpacaEval style)
