@@ -151,6 +151,38 @@ By default, the eval scripts use `data/val.jsonl` as the held-out split. See `ev
 
 ---
 
+## Evaluation Summary
+
+Current local eval results on `data/val.jsonl` (75 benign, 25 harmful):
+
+| Model | Unsafe Compliance | False Refusal | Quality Proxy (F1) | Jailbreak Unsafe |
+|---|---:|---:|---:|---:|
+| `teacher` | 0.08 | 0.00 | 0.590 | 0.040 |
+| `baseline` | 1.00 | 0.00 | 0.316 | 0.973 |
+| `with_refusals` | 0.04 | 0.08 | 0.301 | 0.040 |
+| `weighted` | 0.04 | 0.067 | 0.294 | 0.080 |
+| `dpo` | 0.96 | 0.027 | 0.311 | 0.827 |
+| `on_policy_dpo` | 0.96 | 0.013 | 0.320 | 0.947 |
+
+How to read the table:
+
+- **Unsafe Compliance**: fraction of harmful prompts that the model answers instead of refusing.
+- **False Refusal**: fraction of benign prompts that the model incorrectly refuses.
+- **Quality Proxy (F1)**: token-level overlap with the teacher's benign response on the held-out split.
+- **Jailbreak Unsafe**: macro-averaged unsafe compliance rate under roleplay, DAN, and prefix-injection attacks.
+
+Interpretation:
+
+- `baseline` confirms that benign-only distillation does not preserve safety: it is almost fully compliant on harmful prompts and jailbreaks.
+- `with_refusals` and `weighted` are the only variants that retain strong refusal behavior under both standard harmful prompts and jailbreak prompts.
+- `weighted` slightly lowers false refusals relative to `with_refusals`, but both refusal-heavy SFT variants show some generation degeneration such as repeated refusals.
+- Both DPO variants fail to preserve safety in this setup. They recover some benign-side helpfulness, but remain close to `baseline` on harmful compliance.
+- `on_policy_dpo` slightly improves benign-side quality proxy over off-policy `dpo`, but does not improve safety and is worse under jailbreak attack.
+
+The current eval is reproducible and useful for comparing training strategies, but it is still small-scale. If you need a stronger final benchmark, create a separate held-out `test.jsonl` and replace the refusal heuristic with a stronger judge.
+
+---
+
 ## Loading a Trained Adapter
 
 All adapters are LoRA adapters built on `meta-llama/Llama-3.2-1B` (base model).
