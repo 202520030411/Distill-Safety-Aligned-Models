@@ -62,7 +62,8 @@ The key simplification over the original paper: safety refusal has a binary pseu
 │
 ├── eval/                          # Local evaluation suite
 ├── results/                       # Training summaries
-│   └── sft_results.md             # SFT setup and variant descriptions
+│   ├── sft_results.md             # SFT setup and variant descriptions
+│   └── eval_results.md            # Final local eval summary table and takeaways
 ├── kaggle_generate_data.ipynb     # Kaggle notebook: teacher inference (data generation)
 ├── kaggle_train.ipynb             # Kaggle notebook: all SFT variants + DPO training
 ├── kaggle_rm.ipynb                # Kaggle notebook 1: RM training + response generation + scoring
@@ -134,7 +135,7 @@ Teacher refusals → chosen responses
 
 ### Step 4 — Evaluation
 
-Evaluating all five models (baseline, with_refusals, weighted, dpo, on_policy_dpo) on:
+Evaluating six models (`teacher`, `baseline`, `with_refusals`, `weighted`, `dpo`, `on_policy_dpo`) on:
 - **Unsafe compliance rate (ASR)**: how often the model complies with harmful prompts
 - **False refusal rate**: how often the model refuses benign prompts
 - **Response quality**: teacher-reference proxy on held-out benign prompts
@@ -143,10 +144,10 @@ Evaluating all five models (baseline, with_refusals, weighted, dpo, on_policy_dp
 Local evaluation entrypoint:
 
 ```bash
-python eval/run_all.py --models teacher baseline with_refusals weighted dpo
+python eval/run_all.py --models teacher baseline with_refusals weighted dpo on_policy_dpo
 ```
 
-By default, the eval scripts use `data/val.jsonl` as the held-out split. See `eval/README.md` for the exact metric definitions and caveats.
+By default, the eval scripts use `data/val.jsonl` as the held-out split. See `eval/README.md` for the exact metric definitions and caveats, and `results/eval_results.md` for the current summary table.
 
 ---
 
@@ -165,13 +166,14 @@ tokenizer  = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B")
 model = PeftModel.from_pretrained(base_model, "outputs/baseline")
 ```
 
-Note: `outputs/dpo` is special. It was trained on top of a base model with the `baseline` adapter already merged in, so proper DPO inference/eval should load `baseline`, merge it, and then attach `outputs/dpo`. The helper in `eval/common.py` does this automatically.
+Note: `outputs/dpo` and `outputs/on_policy_dpo` are special. They were trained on top of a base model with the `baseline` adapter already merged in, so proper inference/eval should load `baseline`, merge it, and then attach the DPO adapter. The helper in `eval/common.py` does this automatically.
 
 ---
 
 ## Key Findings (so far)
 
-- Starting from a **base model with no safety alignment** (Llama-3.2-1B) provides a clean baseline where harmful compliance is expected, making safety gains from SFT/DPO clearly measurable.
-- **485 valid DPO preference pairs** were extracted from cases where the base model complied with harmful prompts while the teacher refused.
-- The DPO adapter (β=0.1, train loss 0.072) was trained for ~55 min on Kaggle T4.
-- The repository now includes a local eval suite under `eval/`, but the current held-out split is still small (`data/val.jsonl` has 100 examples).
+- Starting from a **base model with no safety alignment** (Llama-3.2-1B) provides a clean baseline: `baseline` reaches `1.00` unsafe compliance and `0.973` jailbreak unsafe compliance on the held-out local eval.
+- Adding refusal behavior during SFT is the only strategy that preserved safety in this setup. `with_refusals` and `weighted` both reduce unsafe compliance to `0.04`, versus `0.08` for the teacher on the same split.
+- `weighted` trades a small drop in benign quality proxy (`0.294` vs. `0.301`) for a slightly lower false-refusal rate than `with_refusals` (`0.067` vs. `0.080`).
+- Both DPO variants fail to preserve safety here. `dpo` and `on_policy_dpo` both remain highly unsafe (`0.96` unsafe compliance), and both are highly vulnerable under jailbreak prompts (`0.827` and `0.947`).
+- The local eval uses only `data/val.jsonl` (75 benign, 25 harmful), so these results are reproducible and useful for comparison, but still too small to be treated as a final paper-grade benchmark.

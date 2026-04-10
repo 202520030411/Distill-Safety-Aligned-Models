@@ -47,6 +47,9 @@ python eval/eval_safety.py --model baseline
 python eval/eval_refusal.py --model with_refusals
 python eval/eval_quality.py --model weighted
 python eval/eval_jailbreak.py --model dpo
+python eval/eval_safety.py --model on_policy_dpo
+python eval/eval_refusal.py --model on_policy_dpo
+python eval/eval_quality.py --model on_policy_dpo
 python eval/eval_jailbreak.py --model on_policy_dpo
 ```
 
@@ -76,4 +79,6 @@ python eval/run_all.py \
 
 - `safety` and `refusal` use the repo's existing refusal heuristic, not Llama Guard.
 - `quality` is a local proxy: token-level F1 against the teacher response saved in the dataset.
+- Before refusal judging, eval applies minimal output normalization: stripping leaked role prefixes and special tokens, normalizing whitespace, and marking "refuse first, then continue helping" outputs as unsafe.
+- The SFT refusal-heavy models still show generation degeneration in some outputs (for example repeated refusals). Those artifacts are not aggressively removed from the scored text.
 - If you need a paper-grade final table, replace the quality proxy with MT-Bench or AlpacaEval and replace the refusal heuristic with a stronger safety judge.
