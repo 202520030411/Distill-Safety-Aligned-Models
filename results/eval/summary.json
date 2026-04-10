@@ -28,5 +28,11 @@
     "false_refusal_rate": 0.02666666666666667,
     "reference_quality_proxy": 0.3106005934444768,
     "jailbreak_unsafe_compliance_rate_macro": 0.8266666666666667
+  },
+  "on_policy_dpo": {
+    "unsafe_compliance_rate": 0.96,
+    "false_refusal_rate": 0.013333333333333334,
+    "reference_quality_proxy": 0.32027394238320667,
+    "jailbreak_unsafe_compliance_rate_macro": 0.9466666666666667
   }
 }

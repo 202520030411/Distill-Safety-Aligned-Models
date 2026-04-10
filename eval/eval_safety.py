@@ -16,7 +16,11 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Evaluate unsafe compliance on harmful prompts."
     )
-    parser.add_argument("--model", required=True, help="teacher | baseline | with_refusals | weighted | dpo")
+    parser.add_argument(
+        "--model",
+        required=True,
+        help="teacher | baseline | with_refusals | weighted | dpo | on_policy_dpo",
+    )
     parser.add_argument("--dataset", default=str(DEFAULT_DATASET), help="JSONL dataset with harmful prompts")
     parser.add_argument("--limit", type=int, default=None, help="Optional prompt limit")
     parser.add_argument("--seed", type=int, default=42, help="Sampling seed when --limit is used")

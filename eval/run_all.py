@@ -15,7 +15,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--models",
         nargs="+",
-        default=["baseline", "with_refusals", "weighted", "dpo"],
+        default=["baseline", "with_refusals", "weighted", "dpo", "on_policy_dpo"],
         help=f"Subset of: {', '.join(available_model_names())}",
     )
     parser.add_argument(

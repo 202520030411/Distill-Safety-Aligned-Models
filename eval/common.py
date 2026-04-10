@@ -96,6 +96,12 @@ MODEL_SPECS = {
         adapter_path=PROJECT_ROOT / "outputs" / "dpo",
         merged_adapter_path=PROJECT_ROOT / "outputs" / "baseline",
     ),
+    "on_policy_dpo": ModelSpec(
+        name="on_policy_dpo",
+        model_id="meta-llama/Llama-3.2-1B",
+        adapter_path=PROJECT_ROOT / "outputs" / "on_policy_dpo",
+        merged_adapter_path=PROJECT_ROOT / "outputs" / "baseline",
+    ),
 }
 
 
@@ -246,8 +252,29 @@ def load_model_and_tokenizer(model_name: str):
     if torch.cuda.is_available():
         model_kwargs["device_map"] = "auto"
 
-    tokenizer_source = str(spec.adapter_path) if spec.adapter_path else spec.model_id
-    tokenizer = AutoTokenizer.from_pretrained(tokenizer_source, trust_remote_code=True)
+    tokenizer = None
+    tokenizer_candidates = []
+    if spec.adapter_path is not None:
+        tokenizer_candidates.append(str(spec.adapter_path))
+    if spec.merged_adapter_path is not None:
+        tokenizer_candidates.append(str(spec.merged_adapter_path))
+    tokenizer_candidates.append(spec.model_id)
+
+    last_error = None
+    for tokenizer_source in tokenizer_candidates:
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(
+                tokenizer_source,
+                trust_remote_code=True,
+            )
+            break
+        except ValueError as exc:
+            last_error = exc
+            if "Tokenizer class" not in str(exc):
+                raise
+    if tokenizer is None:
+        raise last_error
+
     tokenizer.padding_side = "left"
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token

@@ -9,6 +9,7 @@ This directory fills in the missing evaluation step described in the project REA
 - `eval_quality.py`: benign prompts -> teacher-reference quality proxy
 - `eval_jailbreak.py`: harmful prompts with jailbreak templates -> unsafe compliance under attack
 - `run_all.py`: runs the whole local suite and writes JSON summaries to `results/eval/`
+- `build_summary.py`: rebuilds `results/eval/summary.json` from existing per-metric JSON files
 
 ## Default dataset
 
@@ -23,19 +24,19 @@ This is enough for a reproducible local eval pass, but it is small. If you want 
 
 ## Important model-loading detail
 
-`outputs/dpo/` is not a standalone final model. DPO training was done on:
+`outputs/dpo/` and `outputs/on_policy_dpo/` are not standalone final models. Both were trained on:
 
 1. base `meta-llama/Llama-3.2-1B`
 2. plus merged `outputs/baseline/`
 3. plus a fresh DPO LoRA adapter
 
-So evaluation must load DPO as:
+So evaluation must load both DPO variants as:
 
 1. base model
 2. merge `baseline`
-3. attach `dpo`
+3. attach `dpo` or `on_policy_dpo`
 
-`common.py` handles this automatically when you pass `--model dpo`.
+`common.py` handles this automatically when you pass `--model dpo` or `--model on_policy_dpo`.
 
 ## Commands
 
@@ -46,19 +47,27 @@ python eval/eval_safety.py --model baseline
 python eval/eval_refusal.py --model with_refusals
 python eval/eval_quality.py --model weighted
 python eval/eval_jailbreak.py --model dpo
+python eval/eval_jailbreak.py --model on_policy_dpo
 ```
 
 Run the whole suite:
 
 ```bash
-python eval/run_all.py --models teacher baseline with_refusals weighted dpo
+python eval/run_all.py --models teacher baseline with_refusals weighted dpo on_policy_dpo
+```
+
+Rebuild the summary table without rerunning model inference:
+
+```bash
+python eval/build_summary.py
+python eval/build_summary.py --models teacher baseline with_refusals weighted dpo on_policy_dpo
 ```
 
 Use a larger but non-held-out dataset for jailbreak stress testing:
 
 ```bash
 python eval/run_all.py \
-  --models baseline with_refusals weighted dpo \
+  --models baseline with_refusals weighted dpo on_policy_dpo \
   --dataset data/val.jsonl \
   --jailbreak_dataset data/raw_teacher_outputs.jsonl
 ```
