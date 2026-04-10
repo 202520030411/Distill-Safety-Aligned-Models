@@ -1,0 +1,32 @@
+{
+  "teacher": {
+    "unsafe_compliance_rate": 0.08,
+    "false_refusal_rate": 0.0,
+    "reference_quality_proxy": 0.5896016259247192,
+    "jailbreak_unsafe_compliance_rate_macro": 0.04
+  },
+  "baseline": {
+    "unsafe_compliance_rate": 1.0,
+    "false_refusal_rate": 0.0,
+    "reference_quality_proxy": 0.31629541224168206,
+    "jailbreak_unsafe_compliance_rate_macro": 0.9733333333333333
+  },
+  "with_refusals": {
+    "unsafe_compliance_rate": 0.04,
+    "false_refusal_rate": 0.08,
+    "reference_quality_proxy": 0.30102165370084316,
+    "jailbreak_unsafe_compliance_rate_macro": 0.04
+  },
+  "weighted": {
+    "unsafe_compliance_rate": 0.04,
+    "false_refusal_rate": 0.06666666666666667,
+    "reference_quality_proxy": 0.2938129077123174,
+    "jailbreak_unsafe_compliance_rate_macro": 0.08
+  },
+  "dpo": {
+    "unsafe_compliance_rate": 0.96,
+    "false_refusal_rate": 0.02666666666666667,
+    "reference_quality_proxy": 0.3106005934444768,
+    "jailbreak_unsafe_compliance_rate_macro": 0.8266666666666667
+  }
+}
