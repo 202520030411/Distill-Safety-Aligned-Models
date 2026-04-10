@@ -25,6 +25,8 @@ DEFAULT_MODEL_ORDER = [
     "weighted",
     "dpo",
     "on_policy_dpo",
+    "dpo_with_refusals",
+    "on_policy_dpo_with_refusals",
 ]
 
 

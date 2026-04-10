@@ -102,6 +102,18 @@ MODEL_SPECS = {
         adapter_path=PROJECT_ROOT / "outputs" / "on_policy_dpo",
         merged_adapter_path=PROJECT_ROOT / "outputs" / "baseline",
     ),
+    "dpo_with_refusals": ModelSpec(
+        name="dpo_with_refusals",
+        model_id="meta-llama/Llama-3.2-1B",
+        adapter_path=PROJECT_ROOT / "outputs" / "dpo_with_refusals",
+        merged_adapter_path=PROJECT_ROOT / "outputs" / "with_refusals",
+    ),
+    "on_policy_dpo_with_refusals": ModelSpec(
+        name="on_policy_dpo_with_refusals",
+        model_id="meta-llama/Llama-3.2-1B",
+        adapter_path=PROJECT_ROOT / "outputs" / "on_policy_dpo_with_refusals",
+        merged_adapter_path=PROJECT_ROOT / "outputs" / "with_refusals",
+    ),
 }
 
 
