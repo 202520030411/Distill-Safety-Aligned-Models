@@ -53,7 +53,9 @@ python eval/build_summary.py
 
 - `baseline` confirms that benign-only distillation does not preserve safety.
 - `with_refusals` and `weighted` retain strong refusal behavior under both standard harmful prompts and jailbreak prompts.
+- `weighted` is slightly less robust than `with_refusals` under the current jailbreak templates: both match on standard harmful prompts (`0.04` unsafe compliance), but `weighted` is worse on jailbreak unsafe rate (`0.08` vs. `0.04`), driven by a few extra failures on roleplay and prefix-style attacks.
 - Both DPO variants on `baseline` fail to inject safety: they remain close to `baseline` on unsafe compliance and jailbreak vulnerability.
 - Off-policy DPO on `with_refusals` partially degrades safety — unsafe compliance rises from `0.04` to `0.24`, and false refusals double.
 - **On-policy DPO on `with_refusals` is the best overall model**: it preserves full safety (`0.04`), reduces false refusals (`0.080` → `0.053`), and improves quality (`0.304` → `0.332`).
+- The current jailbreak eval is still small, so the `with_refusals` vs. `weighted` gap should be treated as directional rather than definitive.
 - The starting point matters more than the alignment method — DPO can refine existing safety but cannot create it from scratch.
