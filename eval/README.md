@@ -38,6 +38,14 @@ So evaluation must load both DPO variants as:
 
 `common.py` handles this automatically when you pass `--model dpo` or `--model on_policy_dpo`.
 
+Likewise, `outputs/dpo_with_refusals/` and `outputs/on_policy_dpo_with_refusals/` are also stacked adapters:
+
+1. base model
+2. merge `with_refusals`
+3. attach `dpo_with_refusals` or `on_policy_dpo_with_refusals`
+
+`common.py` also handles this automatically.
+
 ## Commands
 
 Run one metric for one model:
@@ -51,26 +59,28 @@ python eval/eval_safety.py --model on_policy_dpo
 python eval/eval_refusal.py --model on_policy_dpo
 python eval/eval_quality.py --model on_policy_dpo
 python eval/eval_jailbreak.py --model on_policy_dpo
+python eval/eval_safety.py --model dpo_with_refusals
+python eval/eval_quality.py --model on_policy_dpo_with_refusals
 ```
 
 Run the whole suite:
 
 ```bash
-python eval/run_all.py --models teacher baseline with_refusals weighted dpo on_policy_dpo
+python eval/run_all.py --models teacher baseline with_refusals weighted dpo on_policy_dpo dpo_with_refusals on_policy_dpo_with_refusals
 ```
 
 Rebuild the summary table without rerunning model inference:
 
 ```bash
 python eval/build_summary.py
-python eval/build_summary.py --models teacher baseline with_refusals weighted dpo on_policy_dpo
+python eval/build_summary.py --models teacher baseline with_refusals weighted dpo on_policy_dpo dpo_with_refusals on_policy_dpo_with_refusals
 ```
 
 Use a larger but non-held-out dataset for jailbreak stress testing:
 
 ```bash
 python eval/run_all.py \
-  --models baseline with_refusals weighted dpo on_policy_dpo \
+  --models baseline with_refusals weighted dpo on_policy_dpo dpo_with_refusals on_policy_dpo_with_refusals \
   --dataset data/val.jsonl \
   --jailbreak_dataset data/raw_teacher_outputs.jsonl
 ```

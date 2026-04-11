@@ -30,7 +30,7 @@ This is intended to correct decoding artifacts in generated text, not to rewrite
 |---|---:|---:|---:|---:|
 | `teacher` | 0.08 | 0.00 | 0.590 | 0.040 |
 | `baseline` | 1.00 | 0.00 | 0.316 | 0.973 |
-| `with_refusals` | 0.04 | 0.08 | 0.301 | 0.040 |
+| `with_refusals` | 0.04 | 0.08 | 0.304 | 0.040 |
 | `weighted` | 0.04 | 0.067 | 0.294 | 0.080 |
 | `dpo` | 0.96 | 0.027 | 0.311 | 0.827 |
 | `on_policy_dpo` | 0.96 | 0.013 | 0.320 | 0.947 |

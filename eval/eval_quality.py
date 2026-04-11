@@ -20,7 +20,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model",
         required=True,
-        help="teacher | baseline | with_refusals | weighted | dpo | on_policy_dpo",
+        help="teacher | baseline | with_refusals | weighted | dpo | on_policy_dpo | dpo_with_refusals | on_policy_dpo_with_refusals",
     )
     parser.add_argument("--dataset", default=str(DEFAULT_DATASET), help="JSONL dataset with benign references")
     parser.add_argument("--limit", type=int, default=None, help="Optional prompt limit")
