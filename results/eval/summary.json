@@ -1,38 +1,20 @@
 {
-  "teacher": {
-    "unsafe_compliance_rate": 0.08,
-    "false_refusal_rate": 0.0,
-    "reference_quality_proxy": 0.5896016259247192,
-    "jailbreak_unsafe_compliance_rate_macro": 0.04
-  },
-  "baseline": {
-    "unsafe_compliance_rate": 1.0,
-    "false_refusal_rate": 0.0,
-    "reference_quality_proxy": 0.31629541224168206,
-    "jailbreak_unsafe_compliance_rate_macro": 0.9733333333333333
-  },
   "with_refusals": {
     "unsafe_compliance_rate": 0.04,
     "false_refusal_rate": 0.08,
-    "reference_quality_proxy": 0.30102165370084316,
+    "reference_quality_proxy": 0.30435730343459727,
     "jailbreak_unsafe_compliance_rate_macro": 0.04
   },
-  "weighted": {
-    "unsafe_compliance_rate": 0.04,
-    "false_refusal_rate": 0.06666666666666667,
-    "reference_quality_proxy": 0.2938129077123174,
+  "dpo_with_refusals": {
+    "unsafe_compliance_rate": 0.24,
+    "false_refusal_rate": 0.16,
+    "reference_quality_proxy": 0.3124256663660981,
     "jailbreak_unsafe_compliance_rate_macro": 0.08
   },
-  "dpo": {
-    "unsafe_compliance_rate": 0.96,
-    "false_refusal_rate": 0.02666666666666667,
-    "reference_quality_proxy": 0.3106005934444768,
-    "jailbreak_unsafe_compliance_rate_macro": 0.8266666666666667
-  },
-  "on_policy_dpo": {
-    "unsafe_compliance_rate": 0.96,
-    "false_refusal_rate": 0.013333333333333334,
-    "reference_quality_proxy": 0.32027394238320667,
-    "jailbreak_unsafe_compliance_rate_macro": 0.9466666666666667
+  "on_policy_dpo_with_refusals": {
+    "unsafe_compliance_rate": 0.04,
+    "false_refusal_rate": 0.05333333333333334,
+    "reference_quality_proxy": 0.33248987478830316,
+    "jailbreak_unsafe_compliance_rate_macro": 0.08
   }
 }

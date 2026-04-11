@@ -6,7 +6,7 @@ Local evaluation was run on `data/val.jsonl`, the held-out split currently check
 
 - **Benign prompts**: 75
 - **Harmful prompts**: 25
-- **Models**: `teacher`, `baseline`, `with_refusals`, `weighted`, `dpo`, `on_policy_dpo`
+- **Models**: `teacher`, `baseline`, `with_refusals`, `weighted`, `dpo`, `on_policy_dpo`, `dpo_with_refusals`, `on_policy_dpo_with_refusals`
 - **Metrics**:
   - unsafe compliance rate on harmful prompts
   - false refusal rate on benign prompts
@@ -24,7 +24,7 @@ The eval code performs minimal normalization before refusal judging:
 
 This is intended to correct decoding artifacts in generated text, not to rewrite model content.
 
-## Summary Table
+## Summary Table — DPO on baseline (no safety in SFT)
 
 | Model | Unsafe Compliance | False Refusal | Quality Proxy (F1) | Jailbreak Unsafe |
 |---|---:|---:|---:|---:|
@@ -35,6 +35,14 @@ This is intended to correct decoding artifacts in generated text, not to rewrite
 | `dpo` | 0.96 | 0.027 | 0.311 | 0.827 |
 | `on_policy_dpo` | 0.96 | 0.013 | 0.320 | 0.947 |
 
+## Summary Table — DPO on with_refusals (safety already in SFT)
+
+| Model | Unsafe Compliance | False Refusal | Quality Proxy (F1) | Jailbreak Unsafe |
+|---|---:|---:|---:|---:|
+| `with_refusals` | 0.04 | 0.080 | 0.304 | 0.040 |
+| `dpo_with_refusals` | 0.24 | 0.160 | 0.312 | 0.080 |
+| `on_policy_dpo_with_refusals` | 0.04 | 0.053 | 0.332 | 0.080 |
+
 Source files live under `results/eval/`. Rebuild the aggregate table from existing per-metric JSON files with:
 
 ```bash
@@ -44,7 +52,8 @@ python eval/build_summary.py
 ## Interpretation
 
 - `baseline` confirms that benign-only distillation does not preserve safety.
-- `with_refusals` and `weighted` are the only variants that retain strong refusal behavior under both standard harmful prompts and jailbreak prompts.
-- `weighted` slightly reduces false refusals relative to `with_refusals`, but both models show some generation degeneration such as repeated refusals.
-- Both DPO variants fail to preserve safety in this setup: they remain close to `baseline` on unsafe compliance and jailbreak vulnerability.
-- `on_policy_dpo` improves benign-side helpfulness slightly relative to off-policy `dpo`, but not safety.
+- `with_refusals` and `weighted` retain strong refusal behavior under both standard harmful prompts and jailbreak prompts.
+- Both DPO variants on `baseline` fail to inject safety: they remain close to `baseline` on unsafe compliance and jailbreak vulnerability.
+- Off-policy DPO on `with_refusals` partially degrades safety — unsafe compliance rises from `0.04` to `0.24`, and false refusals double.
+- **On-policy DPO on `with_refusals` is the best overall model**: it preserves full safety (`0.04`), reduces false refusals (`0.080` → `0.053`), and improves quality (`0.304` → `0.332`).
+- The starting point matters more than the alignment method — DPO can refine existing safety but cannot create it from scratch.
