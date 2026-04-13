@@ -1,0 +1,8 @@
+{
+  "source": "D:\\Projects\\Distill-Safety-Aligned-Models\\data\\train.jsonl",
+  "num_available_refusals": 460,
+  "num_selected": 100,
+  "train_size": 80,
+  "val_size": 20,
+  "seed": 42
+}

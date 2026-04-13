@@ -1,0 +1,17 @@
+{
+  "source_adapter": "/home/hz314/workspace/Distill-Safety-Aligned-Models/outputs/baseline",
+  "train_file": "/home/hz314/workspace/Distill-Safety-Aligned-Models/data/recovery_baseline/train.jsonl",
+  "val_file": "/home/hz314/workspace/Distill-Safety-Aligned-Models/data/recovery_baseline/val.jsonl",
+  "num_train_examples": 80,
+  "num_val_examples": 20,
+  "epochs": 5,
+  "learning_rate": 0.0002,
+  "metrics": {
+    "train_runtime": 27.6476,
+    "train_samples_per_second": 14.468,
+    "train_steps_per_second": 0.904,
+    "total_flos": 196048874078208.0,
+    "train_loss": 0.847609497308731,
+    "epoch": 5.0
+  }
+}

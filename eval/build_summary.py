@@ -21,6 +21,7 @@ SUMMARY_KEYS = {
 DEFAULT_MODEL_ORDER = [
     "teacher",
     "baseline",
+    "recovered_baseline",
     "with_refusals",
     "weighted",
     "dpo",

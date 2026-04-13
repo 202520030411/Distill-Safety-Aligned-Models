@@ -80,6 +80,11 @@ MODEL_SPECS = {
         model_id="meta-llama/Llama-3.2-1B",
         adapter_path=PROJECT_ROOT / "outputs" / "baseline",
     ),
+    "recovered_baseline": ModelSpec(
+        name="recovered_baseline",
+        model_id="meta-llama/Llama-3.2-1B",
+        adapter_path=PROJECT_ROOT / "outputs" / "recovered_baseline",
+    ),
     "with_refusals": ModelSpec(
         name="with_refusals",
         model_id="meta-llama/Llama-3.2-1B",
