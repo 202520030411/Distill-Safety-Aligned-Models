@@ -196,12 +196,13 @@ Interpretation:
 
 - `baseline` confirms that benign-only distillation does not preserve safety: it is almost fully compliant on harmful prompts and jailbreaks.
 - `with_refusals` and `weighted` retain strong refusal behavior under both standard harmful prompts and jailbreak prompts.
+- `weighted` is not strictly better than `with_refusals` on robustness: both reach `0.04` unsafe compliance on standard harmful prompts, but `weighted` is slightly worse under jailbreaks (`0.08` vs. `0.04`), driven by a few extra failures on roleplay and prefix-style attacks.
 - Both DPO variants trained on `baseline` fail to inject safety: `dpo` and `on_policy_dpo` remain highly unsafe (`0.96` unsafe compliance).
 - **Off-policy DPO on `with_refusals` partially degrades safety** — unsafe compliance rises from `0.04` to `0.24`, and false refusals double to `0.16`.
 - **On-policy DPO on `with_refusals` is the best overall model** — it preserves full safety (`0.04` unsafe compliance), reduces false refusals from `0.080` to `0.053`, and improves benign quality from `0.304` to `0.332`. This shows that RM-guided on-policy DPO can improve helpfulness without sacrificing safety, provided the SFT starting point is already safe.
 - DPO alone cannot create safety from scratch, but on-policy DPO can refine an already-safe model to be more helpful.
 
-The current eval is reproducible and useful for comparing training strategies, but it is still small-scale. If you need a stronger final benchmark, create a separate held-out `test.jsonl` and replace the refusal heuristic with a stronger judge.
+The current eval is reproducible and useful for comparing training strategies, but it is still small-scale. In particular, the `with_refusals` vs. `weighted` jailbreak difference comes from only a few attacked examples, so it should be treated as directional rather than definitive. If you need a stronger final benchmark, create a separate held-out `test.jsonl` and replace the refusal heuristic with a stronger judge.
 
 ---
 
@@ -228,9 +229,10 @@ Note: DPO adapters are trained on top of a merged SFT adapter. `outputs/dpo` and
 
 1. **Benign-only distillation destroys safety.** `baseline` reaches `1.00` unsafe compliance and `0.973` jailbreak unsafe compliance.
 2. **Including refusals in SFT preserves safety.** `with_refusals` and `weighted` both reduce unsafe compliance to `0.04`, matching or exceeding the teacher (`0.08`).
-3. **DPO cannot inject safety into an unsafe model.** Both `dpo` and `on_policy_dpo` (trained on `baseline`) remain at `0.96` unsafe compliance — the preference signal alone is too weak to override the lack of refusal behavior.
-4. **Off-policy DPO partially degrades an already-safe model.** `dpo_with_refusals` increases unsafe compliance from `0.04` to `0.24` and doubles false refusals.
-5. **On-policy DPO on an already-safe model is the best strategy.** `on_policy_dpo_with_refusals` preserves full safety (`0.04`), reduces false refusals from `0.080` to `0.053`, and improves quality proxy from `0.304` to `0.332`. This is the best safety-helpfulness tradeoff across all variants.
-6. **The starting point matters more than the alignment method.** DPO's effectiveness depends entirely on whether the SFT base already has safety — it can refine safety but cannot create it.
+3. **Weighted refusal SFT is a useful baseline, but not the most robust one.** It slightly reduces over-refusal relative to `with_refusals`, but its jailbreak score is worse (`0.08` vs. `0.04`), mainly due to a few extra failures under roleplay and prefix-style attacks.
+4. **DPO cannot inject safety into an unsafe model.** Both `dpo` and `on_policy_dpo` (trained on `baseline`) remain at `0.96` unsafe compliance — the preference signal alone is too weak to override the lack of refusal behavior.
+5. **Off-policy DPO partially degrades an already-safe model.** `dpo_with_refusals` increases unsafe compliance from `0.04` to `0.24` and doubles false refusals.
+6. **On-policy DPO on an already-safe model is the best strategy.** `on_policy_dpo_with_refusals` preserves full safety (`0.04`), reduces false refusals from `0.080` to `0.053`, and improves quality proxy from `0.304` to `0.332`. This is the best safety-helpfulness tradeoff across all variants.
+7. **The starting point matters more than the alignment method.** DPO's effectiveness depends entirely on whether the SFT base already has safety — it can refine safety but cannot create it.
 
 The local eval uses `data/val.jsonl` (75 benign, 25 harmful), so these results are reproducible and useful for comparison, but still too small to be treated as a final paper-grade benchmark.
